@@ -1,0 +1,11 @@
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+
+body {
+  background: linear-gradient(to bottom right, #FFFEF7, #F7F3ED);
+  color: #374151;
+  font-family: 'Noto Sans JP', system-ui, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
