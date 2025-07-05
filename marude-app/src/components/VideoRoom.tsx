@@ -75,6 +75,26 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           // 少し遅延してからストリームを更新
           setTimeout(updateParticipantStreams, 1000);
         });
+        
+        // 背景変更メッセージを受信
+        callRef.current.on("app-message", (event: any) => {
+          if (event.data.type === 'background-change') {
+            // 他の参加者が変更した背景を適用（broadcastなしで）
+            handleBackgroundChange(event.data.background, false);
+          } else if (event.data.type === 'background-sync-request') {
+            // 新規参加者から同期リクエストを受信したら現在の背景を送信
+            if (selectedBackground) {
+              callRef.current.sendAppMessage({
+                type: 'background-sync-response',
+                background: selectedBackground,
+                to: event.fromId
+              });
+            }
+          } else if (event.data.type === 'background-sync-response') {
+            // 背景同期レスポンスを受信したら適用
+            handleBackgroundChange(event.data.background, false);
+          }
+        });
 
         callRef.current.on("participant-joined", () => {
           updateParticipants();
@@ -104,6 +124,13 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           url: roomUrl,
           userName: userName,
         });
+        
+        // 参加完了後、既存の参加者に背景同期をリクエスト
+        setTimeout(() => {
+          callRef.current?.sendAppMessage({
+            type: 'background-sync-request'
+          });
+        }, 2000);
       } catch (error) {
         console.error("Error joining call:", error);
         alert("通話への参加に失敗しました。");
@@ -155,7 +182,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
     onLeave();
   };
 
-  const handleBackgroundChange = async (background: Background | null) => {
+  const handleBackgroundChange = async (background: Background | null, broadcast: boolean = true) => {
     setSelectedBackground(background);
     
     if (!callRef.current) return;
@@ -173,22 +200,45 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             }
           }
         });
+        
+        // 他の参加者に背景変更を通知
+        if (broadcast) {
+          await callRef.current.sendAppMessage({
+            type: 'background-change',
+            background: {
+              id: background.id,
+              name: background.name,
+              url: background.url,
+              thumbnail: background.thumbnail
+            }
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to update background:', error);
     }
   };
 
-  // living-room.jpgを初期背景として設定
+  // living-room.jpgを初期背景として設定 & 参加時の背景同期
   useEffect(() => {
-    if (callRef.current && !isLoading && !selectedBackground) {
-      const livingRoomBackground: Background = {
-        id: 'living-room',
-        name: 'リビングルーム',
-        url: '/backgrounds/living-room.jpg',
-        thumbnail: '/backgrounds/living-room-thumb.jpg'
-      };
-      handleBackgroundChange(livingRoomBackground);
+    if (callRef.current && !isLoading) {
+      if (!selectedBackground) {
+        // デフォルト背景を設定
+        const livingRoomBackground: Background = {
+          id: 'living-room',
+          name: 'リビングルーム',
+          url: '/backgrounds/living-room.jpg',
+          thumbnail: '/backgrounds/living-room-thumb.jpg'
+        };
+        handleBackgroundChange(livingRoomBackground, false);
+        
+        // 既存参加者に背景同期をリクエスト
+        setTimeout(() => {
+          callRef.current?.sendAppMessage({
+            type: 'background-sync-request'
+          });
+        }, 1000);
+      }
     }
   }, [isLoading]);
 
