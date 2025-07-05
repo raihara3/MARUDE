@@ -356,8 +356,8 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           return;
         }
 
-        // キャンバスサイズを背景画像と同じに設定
-        canvas.width = img.width;
+        // キャンバスサイズを元画像の半分の幅に設定（縦横比を維持）
+        canvas.width = img.width / 2;
         canvas.height = img.height;
 
         // 背景の左右を決定
@@ -390,10 +390,11 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           myBackgroundSide,
           remoteBackgroundSide,
           useLeftSide,
+          canvasSize: { width: canvas.width, height: canvas.height }
         });
 
         if (useLeftSide) {
-          // 左側の背景を使用
+          // 左側の背景を使用（縦横比を維持して左半分をそのまま描画）
           ctx.drawImage(
             img,
             0,
@@ -403,10 +404,10 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             0,
             0,
             canvas.width,
-            canvas.height // 描画先：全体
+            canvas.height // 描画先：左半分のサイズのまま
           );
         } else {
-          // 右側の背景を使用
+          // 右側の背景を使用（縦横比を維持して右半分をそのまま描画）
           ctx.drawImage(
             img,
             img.width / 2,
@@ -416,7 +417,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             0,
             0,
             canvas.width,
-            canvas.height // 描画先：全体
+            canvas.height // 描画先：右半分のサイズのまま
           );
         }
 
