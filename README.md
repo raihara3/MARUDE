@@ -1,27 +1,69 @@
-# MARUDE
+# React + TypeScript + Vite
 
-MARUDE（まるで）は、「まるで、一緒にいるみたい。」を実現するビデオ通話サービスです。
-温かみのあるデザイン・サービスを提供します。
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## 概要
+Currently, two official plugins are available:
 
-「MARUDE（まるで）」という名前のビデオ通話サービスです。
-PC 専用のサービスです。
-同一ルームには 5 人まで入室可能で、ビデオとマイクを使用します。
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-ユーザーのカメラ映像から人部分だけを切り取り、
-それらの映像を 1 つに合成し、背景は任意のバーチャル背景を設定できます。
-ユーザーの映像は人と人が重ならないように配置します。
-設定できる背景は 5 種類の選択肢から選ぶことができます。
+## Expanding the ESLint configuration
 
-カメラとマイクは ON/OFF を切り替えることができます。
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-ユーザーは入室時にユーザー名を入力します。
-ユーザー名は画面下部に全員分表示してください。
+```js
+export default tseslint.config([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-## デザイン
+      // Remove tseslint.configs.recommended and replace with this
+      ...tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      ...tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      ...tseslint.configs.stylisticTypeChecked,
 
-「まるで、一緒にいるみたい。」を実現するサービスです。
-温かみのある、やわらかみのあるデザインにしてください。
-また UI はシンプルで白(クリーム色)を基調とした清潔感のあるデザインにしてください。
-みんなが集まる、お部屋のようなイメージです。
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default tseslint.config([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
