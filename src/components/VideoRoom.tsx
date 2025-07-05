@@ -182,12 +182,25 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           updateParticipants();
           updateParticipantStreams();
 
+          // 参加者数を確認
+          const currentCount = Object.keys(
+            callRef.current?.participants() || {}
+          ).length;
+
           // リモートの背景情報をリセット
           setRemoteBackgroundSide(null);
 
-          // 参加者数変更時に背景を再適用
-          if (selectedBackground) {
-            handleBackgroundChange(selectedBackground, false);
+          // 1人になった場合は背景設定をリセット
+          if (currentCount === 1) {
+            console.log('Participant left, switching back to full background');
+            setMyBackgroundSide(null);
+            
+            // 1人用の背景に戻す（遅延を入れて確実に処理されるようにする）
+            if (selectedBackground) {
+              setTimeout(() => {
+                handleBackgroundChange(selectedBackground, false);
+              }, 500);
+            }
           }
         });
 
@@ -447,9 +460,14 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
 
   // 参加者数の変化を監視して背景を更新
   useEffect(() => {
-    if (selectedBackground && participants.length === 2 && myBackgroundSide) {
-      console.log('Participant count changed to 2, updating background');
-      handleBackgroundChange(selectedBackground, false);
+    if (selectedBackground) {
+      if (participants.length === 2 && myBackgroundSide) {
+        console.log('Participant count changed to 2, updating background');
+        handleBackgroundChange(selectedBackground, false);
+      } else if (participants.length === 1 && !myBackgroundSide) {
+        console.log('Participant count changed to 1, updating to full background');
+        handleBackgroundChange(selectedBackground, false);
+      }
     }
   }, [participants.length, myBackgroundSide]);
 
