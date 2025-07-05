@@ -356,9 +356,21 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           return;
         }
 
-        // キャンバスサイズを元画像の半分の幅に設定（縦横比を維持）
-        canvas.width = img.width / 2;
-        canvas.height = img.height;
+        // カメラ映像の縦横比（通常16:9）に合わせてキャンバスサイズを設定
+        const videoAspectRatio = 16 / 9;
+        const sourceWidth = img.width / 2; // 左右分割なので幅は半分
+        const sourceHeight = img.height;
+        
+        // キャンバスサイズを決定（カメラ映像の縦横比に合わせる）
+        if (sourceWidth / sourceHeight > videoAspectRatio) {
+          // 背景の横幅が相対的に大きい場合：高さを基準にする
+          canvas.height = sourceHeight;
+          canvas.width = sourceHeight * videoAspectRatio;
+        } else {
+          // 背景の縦幅が相対的に大きい場合：幅を基準にする
+          canvas.width = sourceWidth;
+          canvas.height = sourceWidth / videoAspectRatio;
+        }
 
         // 背景の左右を決定
         let useLeftSide: boolean;
@@ -393,31 +405,44 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           canvasSize: { width: canvas.width, height: canvas.height }
         });
 
+        // 背景画像を下揃えで描画するための計算
+        const backgroundScale = Math.max(
+          canvas.width / sourceWidth,
+          canvas.height / sourceHeight
+        );
+        
+        const scaledWidth = sourceWidth * backgroundScale;
+        const scaledHeight = sourceHeight * backgroundScale;
+        
+        // 下揃えのためのY座標計算
+        const offsetX = (canvas.width - scaledWidth) / 2;
+        const offsetY = canvas.height - scaledHeight; // 下揃えにする
+
         if (useLeftSide) {
-          // 左側の背景を使用（縦横比を維持して左半分をそのまま描画）
+          // 左側の背景を使用（下揃えで描画）
           ctx.drawImage(
             img,
-            0,
-            0,
-            img.width / 2,
-            img.height, // ソース：左半分
-            0,
-            0,
-            canvas.width,
-            canvas.height // 描画先：左半分のサイズのまま
+            0, // 元画像の左端から
+            0, // 元画像の上端から
+            img.width / 2, // 元画像の幅の半分
+            img.height, // 元画像の高さ全体
+            offsetX, // 描画先X座標
+            offsetY, // 描画先Y座標（下揃え）
+            scaledWidth, // 描画先の幅
+            scaledHeight // 描画先の高さ
           );
         } else {
-          // 右側の背景を使用（縦横比を維持して右半分をそのまま描画）
+          // 右側の背景を使用（下揃えで描画）
           ctx.drawImage(
             img,
-            img.width / 2,
-            0,
-            img.width / 2,
-            img.height, // ソース：右半分
-            0,
-            0,
-            canvas.width,
-            canvas.height // 描画先：右半分のサイズのまま
+            img.width / 2, // 元画像の中央から
+            0, // 元画像の上端から
+            img.width / 2, // 元画像の幅の半分
+            img.height, // 元画像の高さ全体
+            offsetX, // 描画先X座標
+            offsetY, // 描画先Y座標（下揃え）
+            scaledWidth, // 描画先の幅
+            scaledHeight // 描画先の高さ
           );
         }
 

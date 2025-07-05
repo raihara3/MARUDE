@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 interface VideoCanvasProps {
   stream: MediaStream | null;
@@ -14,14 +14,14 @@ export function VideoCanvas({ stream, participantId }: VideoCanvasProps) {
 
     const video = videoRef.current;
     video.srcObject = stream;
-    
+
     const playVideo = async () => {
       try {
         await video.play();
       } catch (error) {
         // play()が中断された場合は無視（一般的な現象）
-        if ((error as Error).name !== 'AbortError') {
-          console.warn('Video play error:', error);
+        if ((error as Error).name !== "AbortError") {
+          console.warn("Video play error:", error);
         }
       }
     };
@@ -40,9 +40,9 @@ export function VideoCanvas({ stream, participantId }: VideoCanvasProps) {
     <div className="relative w-full h-full">
       <video
         ref={videoRef}
-        className="w-full h-full object-cover rounded-lg"
+        className="w-full h-full rounded-lg"
         playsInline
-        muted={participantId === 'local'}
+        muted={participantId === "local"}
       />
     </div>
   );

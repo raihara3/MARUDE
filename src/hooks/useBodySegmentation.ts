@@ -75,8 +75,27 @@ export function useBodySegmentation() {
 
       // 背景を描画
       if (backgroundImage) {
-        // バーチャル背景を描画
-        ctx.drawImage(backgroundImage, 0, 0, outputCanvas.width, outputCanvas.height);
+        // バーチャル背景を下揃えで描画
+        const canvasAspectRatio = outputCanvas.width / outputCanvas.height;
+        const imageAspectRatio = backgroundImage.width / backgroundImage.height;
+        
+        let drawWidth, drawHeight, drawX, drawY;
+        
+        if (imageAspectRatio > canvasAspectRatio) {
+          // 背景画像が横に長い場合：高さを基準にスケール
+          drawHeight = outputCanvas.height;
+          drawWidth = drawHeight * imageAspectRatio;
+          drawX = (outputCanvas.width - drawWidth) / 2;
+          drawY = 0;
+        } else {
+          // 背景画像が縦に長い場合：幅を基準にスケール
+          drawWidth = outputCanvas.width;
+          drawHeight = drawWidth / imageAspectRatio;
+          drawX = 0;
+          drawY = outputCanvas.height - drawHeight; // 下揃えにする
+        }
+        
+        ctx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
       } else {
         // 透明背景
         ctx.fillStyle = 'rgba(0, 0, 0, 0)';
