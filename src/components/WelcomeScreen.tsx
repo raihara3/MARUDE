@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 interface WelcomeScreenProps {
   onJoinRoom: (name: string, roomUrl: string) => void;
@@ -7,7 +7,6 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onJoinRoom }: WelcomeScreenProps) {
   const [userName, setUserName] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -16,8 +15,6 @@ export function WelcomeScreen({ onJoinRoom }: WelcomeScreenProps) {
       alert("お名前を入力してください");
       return;
     }
-
-    setIsCreatingRoom(true);
 
     try {
       // Daily.coのルーム作成API（実際の実装では環境変数からAPIキーを取得）
@@ -52,7 +49,6 @@ export function WelcomeScreen({ onJoinRoom }: WelcomeScreenProps) {
       console.error("Error creating room:", error);
       alert("ルームの作成に失敗しました。もう一度お試しください。");
     } finally {
-      setIsCreatingRoom(false);
     }
   };
 

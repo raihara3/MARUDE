@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface Participant {
   id: string;
@@ -10,52 +10,17 @@ interface Participant {
 
 interface CompositeVideoViewProps {
   participants: Participant[];
+  myBackgroundSide?: "left" | "right" | null;
+  remoteBackgroundSide?: "left" | "right" | null;
 }
 
-export function CompositeVideoView({ participants }: CompositeVideoViewProps) {
+export function CompositeVideoView({
+  participants,
+  myBackgroundSide = null,
+  remoteBackgroundSide = null,
+}: CompositeVideoViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
-  const [participantPositions, setParticipantPositions] = useState<
-    Map<string, { x: number; y: number }>
-  >(new Map());
-
-  // 参加者の位置を自動配置
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const containerWidth = containerRef.current.offsetWidth;
-    const containerHeight = containerRef.current.offsetHeight;
-    const positions = new Map<string, { x: number; y: number }>();
-
-    // 参加者数に応じて配置を計算
-    const count = participants.length;
-    const radius = Math.min(containerWidth, containerHeight) * 0.3;
-    const centerX = containerWidth / 2;
-    const centerY = containerHeight / 2;
-
-    participants.forEach((participant, index) => {
-      let x, y;
-
-      if (count === 1) {
-        // 1人の場合は中央
-        x = centerX - 150;
-        y = centerY - 200;
-      } else if (count === 2) {
-        // 2人の場合は左右に配置
-        x = centerX + (index === 0 ? -200 : 50);
-        y = centerY - 200;
-      } else {
-        // 3人以上の場合は円形に配置
-        const angle = (index * 2 * Math.PI) / count - Math.PI / 2;
-        x = centerX + radius * Math.cos(angle) - 150;
-        y = centerY + radius * Math.sin(angle) - 200;
-      }
-
-      positions.set(participant.id, { x, y });
-    });
-
-    setParticipantPositions(positions);
-  }, [participants]);
 
   // ビデオ要素の管理
   useEffect(() => {
@@ -80,13 +45,34 @@ export function CompositeVideoView({ participants }: CompositeVideoViewProps) {
     });
   }, [participants]);
 
+  // 背景の左右情報に基づいて参加者を並び替え
+  const sortedParticipants = [...participants].sort((a, b) => {
+    if (participants.length === 2 && myBackgroundSide && remoteBackgroundSide) {
+      // 2人の場合、背景の左右に基づいて並び替え
+      const isALocal = a.id === "local";
+      const isBLocal = b.id === "local";
+
+      if (isALocal && !isBLocal) {
+        // 自分が左側の背景を使っている場合は自分を左に
+        return myBackgroundSide === "left" ? -1 : 1;
+      } else if (!isALocal && isBLocal) {
+        // 相手が左側の背景を使っている場合は相手を左に
+        return remoteBackgroundSide === "left" ? -1 : 1;
+      }
+    }
+    // デフォルトはlocalを左に
+    if (a.id === "local") return -1;
+    if (b.id === "local") return 1;
+    return 0;
+  });
+
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full overflow-hidden rounded-xl bg-gray-100"
     >
       <div
-        className="w-full h-full grid gap-4 p-4 box-border"
+        className="w-full h-full grid p-4 box-border"
         style={{
           gridTemplateColumns:
             participants.length <= 2
@@ -95,7 +81,7 @@ export function CompositeVideoView({ participants }: CompositeVideoViewProps) {
           gridTemplateRows: participants.length > 2 ? "repeat(2, 1fr)" : "1fr",
         }}
       >
-        {participants.map((participant) => (
+        {sortedParticipants.map((participant) => (
           <div
             key={participant.id}
             className="relative bg-gray-200 rounded-lg overflow-hidden"
@@ -110,7 +96,7 @@ export function CompositeVideoView({ participants }: CompositeVideoViewProps) {
                     video.srcObject = participant.stream;
                   }
                 }}
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gray-300">

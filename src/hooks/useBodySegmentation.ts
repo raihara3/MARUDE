@@ -7,7 +7,6 @@ export function useBodySegmentation() {
   const [isLoading, setIsLoading] = useState(true);
   const segmenterRef = useRef<bodySegmentation.BodySegmenter | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
   useEffect(() => {
     const initializeSegmenter = async () => {
@@ -31,9 +30,9 @@ export function useBodySegmentation() {
       } catch (error) {
         console.error('Failed to load segmentation model:', error);
         console.error('Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
+          name: (error as Error).name,
+          message: (error as Error).message,
+          stack: (error as Error).stack
         });
         setIsLoading(false);
       }
@@ -139,8 +138,8 @@ export function useBodySegmentation() {
     } catch (error) {
       console.warn('Segmentation error:', error);
       console.warn('Error details:', {
-        name: error.name,
-        message: error.message,
+        name: (error as Error).name,
+        message: (error as Error).message,
         videoReady: videoElement.readyState,
         videoWidth: videoElement.videoWidth,
         videoHeight: videoElement.videoHeight

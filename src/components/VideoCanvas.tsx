@@ -20,7 +20,7 @@ export function VideoCanvas({ stream, participantId }: VideoCanvasProps) {
         await video.play();
       } catch (error) {
         // play()が中断された場合は無視（一般的な現象）
-        if (error.name !== 'AbortError') {
+        if ((error as Error).name !== 'AbortError') {
           console.warn('Video play error:', error);
         }
       }
