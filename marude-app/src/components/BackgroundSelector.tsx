@@ -59,20 +59,6 @@ export function BackgroundSelector({ selectedBackground, onSelectBackground }: B
           <h3 className="text-sm font-medium text-gray-700 mb-3">バーチャル背景</h3>
           
           <div className="space-y-2">
-            <button
-              onClick={() => {
-                onSelectBackground(null);
-                setIsOpen(false);
-              }}
-              className={`w-full text-left p-2 rounded-lg transition-colors ${
-                !selectedBackground
-                  ? 'bg-orange-100 text-gray-800'
-                  : 'hover:bg-gray-100'
-              }`}
-            >
-              なし
-            </button>
-
             {backgrounds.map((bg) => (
               <button
                 key={bg.id}

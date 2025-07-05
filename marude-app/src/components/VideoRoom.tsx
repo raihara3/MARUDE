@@ -3,6 +3,8 @@ import Daily from "@daily-co/daily-js";
 import { VideoControls } from "./VideoControls";
 import { ParticipantsList } from "./ParticipantsList";
 import { CompositeVideoView } from "./CompositeVideoView";
+import { BackgroundSelector } from "./BackgroundSelector";
+import type { Background } from "../types";
 
 interface VideoRoomProps {
   roomUrl: string;
@@ -26,6 +28,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedBackground, setSelectedBackground] = useState<Background | null>(null);
 
   const updateParticipantStreams = useCallback(() => {
     if (!callRef.current) return;
@@ -152,11 +155,52 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
     onLeave();
   };
 
+  const handleBackgroundChange = async (background: Background | null) => {
+    setSelectedBackground(background);
+    
+    if (!callRef.current) return;
+    
+    try {
+      if (background) {
+        // 背景画像を設定
+        await callRef.current.updateInputSettings({
+          video: {
+            processor: {
+              type: 'background-image',
+              config: {
+                source: window.location.origin + background.url
+              }
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update background:', error);
+    }
+  };
+
+  // living-room.jpgを初期背景として設定
+  useEffect(() => {
+    if (callRef.current && !isLoading && !selectedBackground) {
+      const livingRoomBackground: Background = {
+        id: 'living-room',
+        name: 'リビングルーム',
+        url: '/backgrounds/living-room.jpg',
+        thumbnail: '/backgrounds/living-room-thumb.jpg'
+      };
+      handleBackgroundChange(livingRoomBackground);
+    }
+  }, [isLoading]);
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-orange-50 to-amber-50 p-4 box-border">
       <div className="flex-1 relative mb-4">
         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden">
           <CompositeVideoView participants={participantStreams} />
+          <BackgroundSelector
+            selectedBackground={selectedBackground}
+            onSelectBackground={handleBackgroundChange}
+          />
 
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/80">
