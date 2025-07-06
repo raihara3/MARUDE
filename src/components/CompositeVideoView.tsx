@@ -12,12 +12,19 @@ interface CompositeVideoViewProps {
   participants: Participant[];
   myBackgroundSide?: "left" | "right" | null;
   remoteBackgroundSide?: "left" | "right" | null;
+  selectedBackground?: {
+    id: string;
+    name: string;
+    url: string;
+    thumbnail: string;
+  } | null;
 }
 
 export function CompositeVideoView({
   participants,
   myBackgroundSide = null,
   remoteBackgroundSide = null,
+  selectedBackground = null,
 }: CompositeVideoViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
@@ -71,21 +78,30 @@ export function CompositeVideoView({
       ref={containerRef}
       className="relative w-full h-full overflow-hidden rounded-xl bg-gray-100"
     >
+      {/* 2人の時の背景画像 */}
+      {participants.length === 2 && selectedBackground && (
+        <div
+          className="absolute inset-0 bg-cover bg-no-repeat bg-bottom"
+          style={{
+            backgroundImage: `url(${selectedBackground.url})`,
+            zIndex: 1,
+          }}
+        />
+      )}
+
       <div
-        className="w-full h-full grid p-4 box-border"
+        className="w-full grid box-border absolute bottom-0"
         style={{
           gridTemplateColumns:
             participants.length <= 2
               ? `repeat(${participants.length}, 1fr)`
               : "repeat(2, 1fr)",
           gridTemplateRows: participants.length > 2 ? "repeat(2, 1fr)" : "1fr",
+          zIndex: 2,
         }}
       >
         {sortedParticipants.map((participant) => (
-          <div
-            key={participant.id}
-            className="relative bg-gray-200 rounded-lg overflow-hidden"
-          >
+          <div key={participant.id} className="relative overflow-hidden">
             {participant.stream ? (
               <video
                 autoPlay

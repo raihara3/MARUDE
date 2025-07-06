@@ -590,6 +590,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
                 participants={participantStreams}
                 myBackgroundSide={myBackgroundSide}
                 remoteBackgroundSide={remoteBackgroundSide}
+                selectedBackground={selectedBackground}
               />
               <BackgroundSelector
                 selectedBackground={selectedBackground}
