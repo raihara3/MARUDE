@@ -102,9 +102,10 @@ export function CompositeVideoView({
       {(participants.length === 2 || participants.length === 3) &&
         selectedBackground && (
           <div
-            className="absolute inset-0 bg-cover bg-no-repeat bg-bottom"
+            className="absolute inset-0 bg-no-repeat bg-bottom"
             style={{
               backgroundImage: `url(${selectedBackground.url})`,
+              backgroundSize: "100%",
               zIndex: 1,
             }}
           />
