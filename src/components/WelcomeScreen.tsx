@@ -117,7 +117,7 @@ export function WelcomeScreen({ onJoinRoom }: WelcomeScreenProps) {
 
           <button
             type="submit"
-            className="w-full text-gray-800 font-bold block mt-4 py-5 px-4 rounded-lg transition-colors text-base border-none bg-orange-100"
+            className="w-full text-gray-800 font-bold block mt-4 py-5 px-4 rounded-lg transition-colors text-base border-none bg-orange-100 hover:bg-orange-200 cursor-pointer"
           >
             ルームに参加
           </button>
