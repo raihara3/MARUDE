@@ -23,7 +23,6 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
   const isInitializedRef = useRef(false);
   const handleBackgroundChangeRef = useRef<any>(null);
   const updateParticipantStreamsRef = useRef<any>(null);
-  const decideSidesFor2ParticipantsRef = useRef<any>(null);
   const myBackgroundSideRef = useRef<"left" | "right" | null>(null);
   const remoteBackgroundSideRef = useRef<"left" | "right" | null>(null);
   const [participants, setParticipants] = useState<any[]>([]);
@@ -116,21 +115,10 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             useLeftSide = true;
           }
 
-          // 他の参加者に自分の背景側を通知（初回のみ）
-          if (!myBackgroundSide) {
-            setTimeout(() => {
-              callRef.current?.sendAppMessage({
-                type: "background-side-update",
-                side: useLeftSide ? "left" : "right",
-              });
-            }, 100);
-          }
-
           console.log("Background split debug:", {
             myBackgroundSide: myBackgroundSideRef.current,
             remoteBackgroundSide: remoteBackgroundSideRef.current,
             useLeftSide,
-            decision: myBackgroundSideRef.current ? "already set" : (remoteBackgroundSideRef.current === null ? "first participant" : `second participant (remote has ${remoteBackgroundSideRef.current})`),
             canvasSize: { width: canvas.width, height: canvas.height },
           });
 
@@ -189,7 +177,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           : originalUrl;
       });
     },
-    [myBackgroundSide, remoteBackgroundSide]
+    []
   );
 
   const handleBackgroundChange = useCallback(
@@ -209,8 +197,8 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
 
           console.log("handleBackgroundChange:", {
             participantCount,
-            myBackgroundSide,
-            remoteBackgroundSide,
+            myBackgroundSide: myBackgroundSideRef.current,
+            remoteBackgroundSide: remoteBackgroundSideRef.current,
           });
 
           if (participantCount === 2) {
@@ -280,58 +268,11 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
     [createSplitBackground]
   );
 
-  // 2人の参加者が揃った時に左右を決定する関数
-  const decideSidesFor2Participants = useCallback(() => {
-    const currentParticipants = callRef.current?.participants();
-    const participantCount = Object.keys(currentParticipants || {}).length;
-    
-    if (participantCount !== 2) return;
-    
-    console.log("Deciding sides for 2 participants:", {
-      myCurrentSide: myBackgroundSideRef.current,
-      remoteCurrentSide: remoteBackgroundSideRef.current
-    });
-    
-    // 両方とも未設定の場合、または既に正しく設定されている場合
-    if (!myBackgroundSideRef.current) {
-      // 相手の情報がある場合
-      if (remoteBackgroundSideRef.current) {
-        if (remoteBackgroundSideRef.current === "left") {
-          myBackgroundSideRef.current = "right";
-          setMyBackgroundSide("right");
-        } else {
-          myBackgroundSideRef.current = "left";
-          setMyBackgroundSide("left");
-        }
-      } else {
-        // 相手の情報がない場合、自分が先に参加したので左側を選択
-        myBackgroundSideRef.current = "left";
-        setMyBackgroundSide("left");
-        
-        // 相手に通知
-        setTimeout(() => {
-          callRef.current?.sendAppMessage({
-            type: "background-side-update",
-            side: "left",
-          });
-        }, 100);
-      }
-      
-      // 背景を再適用
-      if (selectedBackground && handleBackgroundChangeRef.current) {
-        setTimeout(() => {
-          handleBackgroundChangeRef.current(selectedBackground, false);
-        }, 500);
-      }
-    }
-  }, [selectedBackground]);
-
   // 関数をrefに保存
   useEffect(() => {
     handleBackgroundChangeRef.current = handleBackgroundChange;
     updateParticipantStreamsRef.current = updateParticipantStreams;
-    decideSidesFor2ParticipantsRef.current = decideSidesFor2Participants;
-  }, [handleBackgroundChange, updateParticipantStreams, decideSidesFor2Participants]);
+  }, [handleBackgroundChange, updateParticipantStreams]);
 
   useEffect(() => {
     const initializeCall = async () => {
@@ -347,6 +288,49 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
         callRef.current.on("joined-meeting", () => {
           setIsLoading(false);
           updateParticipants();
+
+          // 参加者情報の取得を少し遅延させる（Daily.coが参加者情報を更新するまで待つ）
+          setTimeout(() => {
+            const currentParticipants = callRef.current?.participants();
+            const remoteParticipants = Object.keys(
+              currentParticipants || {}
+            ).filter((id) => id !== "local");
+            const remoteParticipantCount = remoteParticipants.length;
+            console.log(
+              "Joined meeting (after delay), remote participant count:",
+              remoteParticipantCount
+            );
+            console.log(
+              "All participants:",
+              Object.keys(currentParticipants || {})
+            );
+
+            // 自分の入室順を判定
+            if (remoteParticipantCount === 1) {
+              console.log("I'm the second participant, taking right side");
+              myBackgroundSideRef.current = "right";
+              setMyBackgroundSide("right");
+
+              // 自分の側を通知
+              setTimeout(() => {
+                callRef.current?.sendAppMessage({
+                  type: "background-side-update",
+                  side: "right",
+                });
+              }, 200);
+
+              // 背景を再適用（2人用の分割背景に）
+              setTimeout(() => {
+                if (selectedBackground && handleBackgroundChangeRef.current) {
+                  handleBackgroundChangeRef.current(selectedBackground, false);
+                }
+              }, 1500);
+            } else if (remoteParticipantCount === 0) {
+              console.log(
+                "I'm the first participant, will take left side when someone joins"
+              );
+            }
+          }, 1000); // 1秒遅延で参加者情報を確認
 
           // デフォルト背景を遅延設定（カメラが完全に初期化されるのを待つ）
           setTimeout(async () => {
@@ -404,6 +388,10 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             if (event.data.backgroundSide) {
               remoteBackgroundSideRef.current = event.data.backgroundSide;
               setRemoteBackgroundSide(event.data.backgroundSide);
+              console.log(
+                "Received remote side from sync response:",
+                event.data.backgroundSide
+              );
             }
           } else if (event.data.type === "background-side-update") {
             // 背景の左右情報を受信
@@ -411,17 +399,19 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             remoteBackgroundSideRef.current = event.data.side;
             setRemoteBackgroundSide(event.data.side);
 
-            // 2人の時に左右を再決定
-            const currentCount = Object.keys(
-              callRef.current?.participants() || {}
-            ).length;
+            // 相手が既に側を持っている場合、自分の側を決定
+            if (!myBackgroundSideRef.current && event.data.side) {
+              const mySide = event.data.side === "left" ? "right" : "left";
+              myBackgroundSideRef.current = mySide;
+              setMyBackgroundSide(mySide);
+              console.log("Setting my side based on remote update:", mySide);
 
-            if (currentCount === 2) {
-              setTimeout(() => {
-                if (decideSidesFor2ParticipantsRef.current) {
-                  decideSidesFor2ParticipantsRef.current();
-                }
-              }, 1000);
+              // 背景を再適用（2人用の分割背景に）
+              if (selectedBackground && handleBackgroundChangeRef.current) {
+                setTimeout(() => {
+                  handleBackgroundChangeRef.current(selectedBackground, false);
+                }, 1500);
+              }
             }
           }
         });
@@ -441,16 +431,30 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             handleLeave();
           }
 
-          // 2人になった時点で左右を決定
-          if (currentCount === 2) {
-            console.log("2 participants detected, deciding sides");
-            
-            // 少し遅延してから左右を決定（映像が安定してから）
+          // 自分が最初にいて、新しい人が参加した場合
+          const remoteCount = Object.keys(
+            callRef.current?.participants() || {}
+          ).filter((id) => id !== "local").length;
+
+          if (remoteCount === 1 && !myBackgroundSideRef.current) {
+            console.log("First remote participant joined, I take left side");
+            myBackgroundSideRef.current = "left";
+            setMyBackgroundSide("left");
+
+            // 自分の側を通知
             setTimeout(() => {
-              if (decideSidesFor2ParticipantsRef.current) {
-                decideSidesFor2ParticipantsRef.current();
-              }
-            }, 2000);
+              callRef.current?.sendAppMessage({
+                type: "background-side-update",
+                side: "left",
+              });
+            }, 200);
+
+            // 背景を再適用（2人用の分割背景に）
+            if (selectedBackground && handleBackgroundChangeRef.current) {
+              setTimeout(() => {
+                handleBackgroundChangeRef.current(selectedBackground, false);
+              }, 1500);
+            }
           }
         });
 
@@ -560,18 +564,6 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
   };
 
   // この行以降の関数定義は上部に移動済み
-
-  // 参加時の背景同期
-  useEffect(() => {
-    if (callRef.current && !isLoading && isBackgroundReady) {
-      // 既存参加者に背景同期をリクエスト
-      setTimeout(() => {
-        callRef.current?.sendAppMessage({
-          type: "background-sync-request",
-        });
-      }, 1000);
-    }
-  }, [isLoading, isBackgroundReady]);
 
   // 参加者数の変化を監視して背景を更新
   useEffect(() => {
