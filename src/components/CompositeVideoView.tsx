@@ -10,8 +10,8 @@ interface Participant {
 
 interface CompositeVideoViewProps {
   participants: Participant[];
-  myBackgroundSide?: "left" | "right" | null;
-  remoteBackgroundSide?: "left" | "right" | null;
+  myBackgroundSide?: "left" | "right" | "center" | null;
+  remoteBackgroundSide?: "left" | "right" | "center" | null;
   selectedBackground?: {
     id: string;
     name: string;
@@ -23,7 +23,6 @@ interface CompositeVideoViewProps {
 export function CompositeVideoView({
   participants,
   myBackgroundSide = null,
-  remoteBackgroundSide = null,
   selectedBackground = null,
 }: CompositeVideoViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,51 +51,73 @@ export function CompositeVideoView({
     });
   }, [participants]);
 
-  // 背景の左右情報に基づいて参加者を並び替え
-  const sortedParticipants = [...participants].sort((a, b) => {
-    if (participants.length === 2 && myBackgroundSide && remoteBackgroundSide) {
-      // 2人の場合、背景の左右に基づいて並び替え
-      const isALocal = a.id === "local";
-      const isBLocal = b.id === "local";
+  // 背景の位置に基づいて参加者を並び替え
+  const sortedParticipants = [...participants];
 
-      if (isALocal && !isBLocal) {
-        // 自分が左側の背景を使っている場合は自分を左に
-        return myBackgroundSide === "left" ? -1 : 1;
-      } else if (!isALocal && isBLocal) {
-        // 相手が左側の背景を使っている場合は相手を左に
-        return remoteBackgroundSide === "left" ? -1 : 1;
-      }
-    }
-    // デフォルトはlocalを左に
-    if (a.id === "local") return -1;
-    if (b.id === "local") return 1;
-    return 0;
-  });
+  if (participants.length === 2 || participants.length === 3) {
+    sortedParticipants.sort((a, b) => {
+      // 自分の位置を基準に並び替え
+      const getPosition = (participant: Participant) => {
+        if (participant.id === "local") {
+          // 自分の場合
+          if (myBackgroundSide === "left") return 0;
+          if (myBackgroundSide === "center") return 1;
+          if (myBackgroundSide === "right") return 2;
+          return 0; // デフォルトは左
+        } else {
+          // リモート参加者の場合、IDで順序を決定
+          if (participants.length === 2) {
+            // 2人の場合：自分がleftなら相手はright、自分がrightなら相手はleft
+            return myBackgroundSide === "left" ? 2 : 0;
+          } else {
+            // 3人の場合：自分以外の位置を割り当て
+            const otherParticipants = participants.filter(
+              (p) => p.id !== "local"
+            );
+            const myIndex = otherParticipants.findIndex(
+              (p) => p.id === participant.id
+            );
+
+            if (myBackgroundSide === "left") {
+              return myIndex === 0 ? 1 : 2; // center, right
+            } else if (myBackgroundSide === "center") {
+              return myIndex === 0 ? 0 : 2; // left, right
+            } else {
+              return myIndex === 0 ? 0 : 1; // left, center
+            }
+          }
+        }
+      };
+
+      return getPosition(a) - getPosition(b);
+    });
+  }
 
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full overflow-hidden rounded-xl bg-gray-100"
     >
-      {/* 2人の時の背景画像 */}
-      {participants.length === 2 && selectedBackground && (
-        <div
-          className="absolute inset-0 bg-cover bg-no-repeat bg-bottom"
-          style={{
-            backgroundImage: `url(${selectedBackground.url})`,
-            zIndex: 1,
-          }}
-        />
-      )}
+      {/* 2人または3人の時の背景画像 */}
+      {(participants.length === 2 || participants.length === 3) &&
+        selectedBackground && (
+          <div
+            className="absolute inset-0 bg-cover bg-no-repeat bg-bottom"
+            style={{
+              backgroundImage: `url(${selectedBackground.url})`,
+              zIndex: 1,
+            }}
+          />
+        )}
 
       <div
         className="w-full grid box-border absolute bottom-0"
         style={{
           gridTemplateColumns:
-            participants.length <= 2
+            participants.length <= 3
               ? `repeat(${participants.length}, 1fr)`
               : "repeat(2, 1fr)",
-          gridTemplateRows: participants.length > 2 ? "repeat(2, 1fr)" : "1fr",
+          gridTemplateRows: participants.length > 3 ? "repeat(2, 1fr)" : "1fr",
           zIndex: 2,
         }}
       >
