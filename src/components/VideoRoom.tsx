@@ -24,7 +24,9 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
   const handleBackgroundChangeRef = useRef<any>(null);
   const updateParticipantStreamsRef = useRef<any>(null);
   const myBackgroundSideRef = useRef<"left" | "right" | "center" | null>(null);
-  const remoteBackgroundSideRef = useRef<"left" | "right" | "center" | null>(null);
+  const remoteBackgroundSideRef = useRef<"left" | "right" | "center" | null>(
+    null
+  );
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantStreams, setParticipantStreams] = useState<
     ParticipantWithStream[]
@@ -89,7 +91,8 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
 
           // カメラ映像の縦横比（通常16:9）に合わせてキャンバスサイズを設定
           const videoAspectRatio = 16 / 9;
-          const sourceWidth = participantCount === 2 ? img.width / 2 : img.width / 3; // 2人は半分、3人は三分の一
+          const sourceWidth =
+            participantCount === 2 ? img.width / 2 : img.width / 3; // 2人は半分、3人は三分の一
           const sourceHeight = img.height;
 
           // キャンバスサイズを決定（カメラ映像の縦横比に合わせる）
@@ -105,7 +108,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
 
           // 背景の分割位置を決定
           let sourceX = 0;
-          
+
           if (participantCount === 2) {
             // 2人の場合：左右分割
             if (myBackgroundSideRef.current === "right") {
@@ -194,7 +197,10 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
 
           if (participantCount === 2 || participantCount === 3) {
             // 2人または3人の場合は分割背景を生成
-            backgroundUrl = await createSplitBackground(background.url, participantCount);
+            backgroundUrl = await createSplitBackground(
+              background.url,
+              participantCount
+            );
           }
 
           // 背景画像を設定
@@ -321,13 +327,21 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
               myBackgroundSideRef.current = "right";
               setMyBackgroundSide("right");
 
+              // 既存の2人目に中央への移動を指示
+              setTimeout(() => {
+                callRef.current?.sendAppMessage({
+                  type: "move-to-center",
+                  targetParticipant: "second",
+                });
+              }, 200);
+
               // 自分の側を通知
               setTimeout(() => {
                 callRef.current?.sendAppMessage({
                   type: "background-side-update",
                   side: "right",
                 });
-              }, 200);
+              }, 400);
 
               // 背景を再適用（3人用の分割背景に）
               setTimeout(() => {
@@ -411,8 +425,10 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
 
             // 相手が既に側を持っている場合、自分の側を決定
             if (!myBackgroundSideRef.current && event.data.side) {
-              const participantCount = Object.keys(callRef.current?.participants() || {}).length;
-              
+              const participantCount = Object.keys(
+                callRef.current?.participants() || {}
+              ).length;
+
               let mySide: "left" | "right" | "center";
               if (participantCount === 2) {
                 mySide = event.data.side === "left" ? "right" : "left";
@@ -433,7 +449,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
               } else {
                 mySide = event.data.side === "left" ? "right" : "left";
               }
-              
+
               myBackgroundSideRef.current = mySide;
               setMyBackgroundSide(mySide);
               console.log("Setting my side based on remote update:", mySide);
@@ -447,18 +463,42 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             }
           } else if (event.data.type === "background-side-assignment") {
             // 背景の側を割り当てられた場合
-            console.log("Received background-side-assignment:", event.data.targetSide);
-            
+            console.log(
+              "Received background-side-assignment:",
+              event.data.targetSide
+            );
+
             // 1人目（left）は変更しない
             if (myBackgroundSideRef.current === "left") {
-              console.log("I'm the first participant (left), ignoring reassignment");
+              console.log(
+                "I'm the first participant (left), ignoring reassignment"
+              );
               return;
             }
-            
+
             // 2人目のみ center に変更可能
-            if (myBackgroundSideRef.current === "right" && event.data.targetSide === "center") {
+            if (
+              myBackgroundSideRef.current === "right" &&
+              event.data.targetSide === "center"
+            ) {
               myBackgroundSideRef.current = event.data.targetSide;
               setMyBackgroundSide(event.data.targetSide);
+
+              // 背景を再適用
+              if (selectedBackground && handleBackgroundChangeRef.current) {
+                setTimeout(() => {
+                  handleBackgroundChangeRef.current(selectedBackground, false);
+                }, 1500);
+              }
+            }
+          } else if (event.data.type === "move-to-center") {
+            // 2人目（現在right）を中央に移動させる
+            console.log("Received move-to-center message");
+
+            if (myBackgroundSideRef.current === "right") {
+              console.log("Moving from right to center for 3-person layout");
+              myBackgroundSideRef.current = "center";
+              setMyBackgroundSide("center");
 
               // 背景を再適用
               if (selectedBackground && handleBackgroundChangeRef.current) {
@@ -470,10 +510,13 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           } else if (event.data.type === "reorganize-positions") {
             // 3人になった時の再配置
             console.log("Received reorganize-positions");
-            
+
             // 参加者リストを取得して順序を決定
-            console.log("Current participants:", Object.keys(callRef.current?.participants() || {}));
-            
+            console.log(
+              "Current participants:",
+              Object.keys(callRef.current?.participants() || {})
+            );
+
             // 入室順序に基づいて位置を決定
             if (myBackgroundSideRef.current === "left") {
               // 1人目はleftのまま変更なし
@@ -483,7 +526,7 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
               console.log("I was second participant, moving to center");
               myBackgroundSideRef.current = "center";
               setMyBackgroundSide("center");
-              
+
               // 背景を再適用
               if (selectedBackground && handleBackgroundChangeRef.current) {
                 setTimeout(() => {
@@ -534,18 +577,19 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
                 handleBackgroundChangeRef.current(selectedBackground, false);
               }, 1500);
             }
-          } else if (remoteCount === 2 && myBackgroundSideRef.current === "left") {
-            console.log("Third participant joined, reorganizing positions");
-            
-            // 全参加者の再配置を実行
+          } else if (
+            remoteCount === 2 &&
+            myBackgroundSideRef.current === "left"
+          ) {
+            console.log(
+              "Third participant joined, sending move-to-center to second participant"
+            );
+
+            // 2人目に中央への移動を指示
             setTimeout(() => {
               callRef.current?.sendAppMessage({
-                type: "reorganize-positions",
-                positions: {
-                  first: "left",    // 1人目は左
-                  second: "center", // 2人目は中央
-                  third: "right"    // 3人目は右
-                }
+                type: "move-to-center",
+                targetParticipant: "second",
               });
             }, 200);
 
