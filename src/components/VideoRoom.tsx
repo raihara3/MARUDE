@@ -27,6 +27,8 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
   const remoteBackgroundSideRef = useRef<"left" | "right" | "center" | null>(
     null
   );
+  const myJoinOrderRef = useRef<number | null>(null);
+  const participantJoinOrdersRef = useRef<Map<string, number>>(new Map());
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantStreams, setParticipantStreams] = useState<
     ParticipantWithStream[]
@@ -265,11 +267,76 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
     [createSplitBackground]
   );
 
+  // 背景位置を再計算する関数（入室順序に基づく）
+  const recalculateMyPosition = useCallback(
+    (participantCount: number) => {
+      console.log(
+        "Recalculating my position for",
+        participantCount,
+        "participants"
+      );
+      console.log("Current my background side:", myBackgroundSideRef.current);
+      console.log("My join order:", myJoinOrderRef.current);
+
+      if (participantCount === 2 && myJoinOrderRef.current !== null) {
+        // 残った参加者の入室順序を確認
+        const currentParticipants = callRef.current?.participants();
+        const remainingParticipants = Object.keys(currentParticipants || {});
+
+        console.log("Remaining participants:", remainingParticipants);
+        console.log(
+          "Participant join orders:",
+          Array.from(participantJoinOrdersRef.current.entries())
+        );
+
+        // 残った参加者の中で最も早い入室順序を持つ人が左側になる
+        let earliestJoinOrder = myJoinOrderRef.current;
+        let myIsEarliest = true;
+
+        remainingParticipants.forEach((participantId) => {
+          if (participantId !== "local") {
+            const otherJoinOrder =
+              participantJoinOrdersRef.current.get(participantId);
+            if (
+              otherJoinOrder !== undefined &&
+              otherJoinOrder < earliestJoinOrder
+            ) {
+              earliestJoinOrder = otherJoinOrder;
+              myIsEarliest = false;
+            }
+          }
+        });
+
+        const newSide: "left" | "right" = myIsEarliest ? "left" : "right";
+
+        console.log(
+          "Recalculating: myIsEarliest =",
+          myIsEarliest,
+          "newSide =",
+          newSide
+        );
+
+        if (myBackgroundSideRef.current !== newSide) {
+          myBackgroundSideRef.current = newSide;
+          setMyBackgroundSide(newSide);
+
+          // 背景を再適用
+          if (selectedBackground && handleBackgroundChangeRef.current) {
+            setTimeout(() => {
+              handleBackgroundChangeRef.current(selectedBackground, false);
+            }, 1000);
+          }
+        }
+      }
+    },
+    [selectedBackground]
+  );
+
   // 関数をrefに保存
   useEffect(() => {
     handleBackgroundChangeRef.current = handleBackgroundChange;
     updateParticipantStreamsRef.current = updateParticipantStreams;
-  }, [handleBackgroundChange, updateParticipantStreams]);
+  }, [handleBackgroundChange, updateParticipantStreams, recalculateMyPosition]);
 
   useEffect(() => {
     const initializeCall = async () => {
@@ -277,6 +344,16 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
       if (isInitializedRef.current || callRef.current) return;
 
       try {
+        // 既存のDaily.coインスタンスをクリーンアップ
+        if (callRef.current) {
+          try {
+            callRef.current.destroy();
+          } catch (error) {
+            console.warn("Warning cleaning up existing call:", error);
+          }
+          callRef.current = null;
+        }
+
         isInitializedRef.current = true;
         callRef.current = Daily.createCallObject({
           subscribeToTracksAutomatically: true,
@@ -301,6 +378,16 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
               "All participants:",
               Object.keys(currentParticipants || {})
             );
+
+            // 自分の入室順を設定（参加者数 + 1）
+            const myJoinOrder = remoteParticipantCount + 1;
+            myJoinOrderRef.current = myJoinOrder;
+            console.log("My join order:", myJoinOrder);
+
+            // 既存の参加者の入室順序を推定
+            remoteParticipants.forEach((participantId, index) => {
+              participantJoinOrdersRef.current.set(participantId, index + 1);
+            });
 
             // 自分の入室順を判定
             if (remoteParticipantCount === 1) {
@@ -538,16 +625,29 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           }
         });
 
-        callRef.current.on("participant-joined", () => {
+        callRef.current.on("participant-joined", (event: any) => {
           updateParticipants();
           if (updateParticipantStreamsRef.current) {
             updateParticipantStreamsRef.current();
           }
 
-          // 5人制限のチェック
+          // 新しい参加者の入室順序を記録
           const currentCount = Object.keys(
             callRef.current?.participants() || {}
           ).length;
+
+          // 新しく参加した人の入室順序を設定
+          if (event.participant && event.participant.session_id) {
+            participantJoinOrdersRef.current.set(
+              event.participant.session_id,
+              currentCount
+            );
+            console.log(
+              `New participant ${event.participant.session_id} assigned join order ${currentCount}`
+            );
+          }
+
+          // 5人制限のチェック
           if (currentCount > 5) {
             alert("このルームは満員です（最大5人）");
             handleLeave();
@@ -609,10 +709,20 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
           }
         });
 
-        callRef.current.on("participant-left", () => {
+        callRef.current.on("participant-left", (event: any) => {
           updateParticipants();
           if (updateParticipantStreamsRef.current) {
             updateParticipantStreamsRef.current();
+          }
+
+          // 退出した参加者の入室順序情報を削除
+          if (event.participant && event.participant.session_id) {
+            participantJoinOrdersRef.current.delete(
+              event.participant.session_id
+            );
+            console.log(
+              `Removed join order for participant ${event.participant.session_id}`
+            );
           }
 
           // 参加者数を確認
@@ -620,17 +730,19 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
             callRef.current?.participants() || {}
           ).length;
 
+          console.log("Participant left, current count:", currentCount);
+
           // リモートの背景情報をリセット
           remoteBackgroundSideRef.current = null;
           setRemoteBackgroundSide(null);
 
-          // 1人になった場合は背景設定をリセット
           if (currentCount === 1) {
+            // 1人になった場合は背景設定をリセット
             console.log("Participant left, switching back to full background");
             myBackgroundSideRef.current = null;
             setMyBackgroundSide(null);
 
-            // 1人用の背景に戻す（遅延を入れて確実に処理されるようにする）
+            // 1人用の背景に戻す
             if (selectedBackground) {
               setTimeout(() => {
                 if (handleBackgroundChangeRef.current) {
@@ -638,6 +750,14 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
                 }
               }, 500);
             }
+          } else if (currentCount === 2) {
+            // 3人→2人になった場合の再配置
+            console.log("Reorganizing for 2 participants after someone left");
+
+            // 自分の位置を再計算
+            setTimeout(() => {
+              recalculateMyPosition(2);
+            }, 500);
           }
         });
 
@@ -674,12 +794,18 @@ export function VideoRoom({ roomUrl, userName, onLeave }: VideoRoomProps) {
         try {
           callRef.current.leave();
           callRef.current.destroy();
-          callRef.current = null;
         } catch (error) {
           console.error("Error cleaning up call:", error);
+        } finally {
+          callRef.current = null;
         }
       }
+      // 状態をクリーンアップ
       isInitializedRef.current = false;
+      myBackgroundSideRef.current = null;
+      remoteBackgroundSideRef.current = null;
+      myJoinOrderRef.current = null;
+      participantJoinOrdersRef.current.clear();
     };
   }, [roomUrl, userName, onLeave]);
 
